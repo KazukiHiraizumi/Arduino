@@ -1,7 +1,7 @@
 # 起動手順  
-1. Arduino(Lenardo)にUSBケーブルが接続されていれば、それを外します
+1. Arduino(Leonardo)にUSBケーブルが接続されていれば、それを外します
 2. 電源プラグにコードを差し込み、電源SWをオン
-3. Arduino(Leonardo)のLED(L)の点滅開始します。点滅終了で起動完了
+3. Arduino(Leonardo)のLED(L)が点滅開始します。点滅終了で起動完了
 
 # 調整  
 ## ソフトウェア
@@ -11,6 +11,9 @@ Arduinoプログラムのマクロ(#define)にて、以下の調整が出来ま�
 |:----|:----|:----|
 |ハンドル回転方向|INVERT|true:右ハンドル<br>false:左ハンドル|
 |ギア比(ウォーム:ハンドル)|RATIO|ギア比(ウォームシャフト:ハンドル)を8ビット範囲(0〜255)で設定します。実際のギア比は**RATIO/256**となります。1を設定したい場合は、RATIOを0とします。なお1を超えるギア比は設定出来できません。|
+
+## ArduinoIDE  
+Arduinoのプログラムを変更するには、ArduinoIDEをインストールします。ArduinoIDEは[https://www.arduino.cc/en/Main/Software](https://www.arduino.cc/en/Main/Software)からダウンロードします。
 
 ## A4988(ステッピングモータドライバ)  
 下図のトリマーにて電流調整します。モータ(TS3692)の定格電流は300mAです。  
