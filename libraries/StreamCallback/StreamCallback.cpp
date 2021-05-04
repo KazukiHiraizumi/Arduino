@@ -5,29 +5,29 @@
 #define BUFLEN 20
 #define LATENCY 5  //ms
 
-void cb_rec(void *ref){
+static void cb_trigger(void *ref){
 	StreamCallback *tag=(StreamCallback *)ref;
 	Timeout.set(tag,[](void *t){
 		StreamCallback *tag=(StreamCallback *)t;
 		(*tag->callback)(tag->buf);
 	},0);
-	tag->bptr=tag->evrec=0;
+	tag->bptr=tag->ev_trigger=0;
 }
-void cb_tmr(void *ref){
+static void cb_loop(void *ref){
 	StreamCallback *tag=(StreamCallback *)ref;
 	if(tag->serial->available()){
-		if(tag->evrec!=0) Timeout.clear(tag->evrec);
+		if(tag->ev_trigger!=0) Timeout.clear(tag->ev_trigger);
 		tag->buf[tag->bptr++]=tag->serial->read();
 	    	tag->buf[tag->bptr]=0;
-		tag->evrec=Timeout.set(tag,cb_rec,LATENCY);
+		tag->ev_trigger=Timeout.set(tag,cb_trigger,LATENCY);
 	}
-	tag->evtmr=Timeout.set(tag,cb_tmr,0);
+	tag->ev_loop=Timeout.set(tag,cb_loop,0);
 }
-StreamCallback::StreamCallback(Stream *se,StreamCallbackFunc cb){
+StreamCallback::StreamCallback(Stream *se,CallbackCharPtr cb){
 	callback=cb;
 	serial=se;
-	evrec=0;
-	evtmr=Timeout.set(this,cb_tmr,0);
+	ev_trigger=0;
+	ev_loop=Timeout.set(this,cb_loop,0);
 	buf=new char[BUFLEN];
 	bptr=0;
 }
