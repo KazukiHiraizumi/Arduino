@@ -13,6 +13,7 @@ public:
   CallbackDoublePtr callback;
   IcmDriver(ICM_20948_I2C *,Stream *,int,CallbackDoublePtr);
   void reset(void);
+  bool parse(char *);
 };
 
 #endif

@@ -268,3 +268,6 @@ void IcmDriver::reset(void){
     Serial.println(F("Please check that you have uncommented line 29 (#define ICM_20948_USE_DMP) in ICM_20948_C.h..."));
   }
 }
+bool IcmDriver::parse(char *){
+  reset();
+}

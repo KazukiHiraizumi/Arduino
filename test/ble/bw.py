@@ -35,7 +35,8 @@ async def run(address, loop):
 
     for n in range(5):
       print("Writing")
-      await client.write_gatt_char(CWR_UUID,b'$18F00115002552553E;')
+#      await client.write_gatt_char(CWR_UUID,b'$18F00115002552553E;')
+      await client.write_gatt_char(CWR_UUID,b'SF I100 C120')
       time.sleep(0.1)
 
 loop = asyncio.get_event_loop()
