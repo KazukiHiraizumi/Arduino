@@ -17,18 +17,6 @@ SoftwareSerial HAP_BUS(HAP_RX,HAP_TX);
 
 //BLE module definition
 #define BLE_BUS Serial2
-#define BLE_RTS 28
-int ble_wake_ev=0;
-void ble_wake(){
-  Serial.println("BLE wakeup");
-  pinMode(BLE_RTS,OUTPUT);
-  digitalWrite(28,LOW);
-  Timeout.set([](){
-    digitalWrite(28,HIGH);
-    pinMode(BLE_RTS,INPUT);
-  },100);
-  ble_wake_ev=Timeout.set(ble_wake,30000);
-}
 
 //Drivers
 HapDriver *HAPD;
@@ -58,14 +46,11 @@ void setup() {
   BLED=new StreamCallback(&BLE_BUS,[](char *s){
     Serial.print("BLE->");
     Serial.println(s);
-    Timeout.clear(ble_wake_ev);
     int mk=s[0];
     if(mk=='S') HAPD->parse(s);  //S:Sense command for Haptics module
     else if(mk=='M') IMUD->parse(s); //M: for IMU module
 //    else if(mk=='G') GPSD->parse(s); //G: for GPS module
-    ble_wake_ev=Timeout.set(ble_wake,30000);
   });
-  ble_wake_ev=Timeout.set(ble_wake,30000);
 //Setting callback for IMU module
   IMUD=new IcmDriver(&IMU,&IMU_BUS,IMU_ADDS,[](double *d){
 /*    Serial.print("IMU->[");
@@ -85,28 +70,30 @@ void setup() {
 static int n_loop=0;
 void loop(){
   int m=(n_loop>>10)%6;
-  digitalWrite(LED0,LOW);
-  digitalWrite(LED1,LOW);
-  digitalWrite(LED2,LOW);
-  digitalWrite(LED3,LOW);
   switch(m){
     case 0:
       digitalWrite(LED0,HIGH);
+      digitalWrite(LED1,LOW);
       break;
     case 1:
       digitalWrite(LED1,HIGH);
+      digitalWrite(LED0,LOW);
       break;
     case 2:
       digitalWrite(LED2,HIGH);
+      digitalWrite(LED1,LOW);
       break;
     case 3:
       digitalWrite(LED3,HIGH);
+      digitalWrite(LED2,LOW);
       break;
     case 4:
       digitalWrite(LED2,HIGH);
+      digitalWrite(LED3,LOW);
       break;
     case 5:
       digitalWrite(LED1,HIGH);
+      digitalWrite(LED2,LOW);
       break;
   }
   n_loop++;

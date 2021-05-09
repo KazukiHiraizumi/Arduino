@@ -90,7 +90,10 @@ void IcmDriver::reset(void){
   bool initialized = false;
   while( !initialized ){
     icm->begin(*(TwoWire *)wire,adds);
-    if( icm->status != ICM_20948_Stat_Ok ) delay(500);
+    if( icm->status != ICM_20948_Stat_Ok ){
+      Serial.println("icm begin failed");
+      return;
+    }
     else initialized = true;
   }
   Serial.println("icm begin");
