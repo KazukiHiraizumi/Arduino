@@ -45,7 +45,7 @@ void TimeoutClass::clear(long d){
 int TimeoutClass::lookup(long d){
   TimeoutTab *et=tbl;
   int n=0;
-  for(;;n++,et++){
+  for(;n<TBLEN;n++,et++){
     if(et->key==d) return n;
   }
   return -1; //not found
