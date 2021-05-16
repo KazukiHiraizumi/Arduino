@@ -12,7 +12,11 @@ ICM_20948_I2C IMU;
 //Drivers
 IcmDriver *IMUD;
 
+//globals
+long tmnow;
+
 void setup() {
+  tmnow=millis();
 //Initializing dios
   pinMode(LED0, OUTPUT);
   pinMode(LED1, OUTPUT);
@@ -29,6 +33,8 @@ void setup() {
   });
 //Setting callback for IMU module
   IMUD=new IcmDriver(&IMU,&IMU_BUS,IMU_ADDS,[](double *d){
+    long t=millis();
+    if(t-tmnow<100) return;
     Serial.print("[");
     Serial.print(d[0]);
     Serial.print(",");
@@ -38,6 +44,7 @@ void setup() {
     Serial.print(",");
     Serial.print(d[3]);
     Serial.println("]");
+    tmnow=t;
   });
 }
 static int n_loop=0;
