@@ -1,8 +1,11 @@
 import asyncio
 import time
 import numpy as np
-
 import PySimpleGUI as sg
+
+##########################################
+#GUI example to control the device
+##########################################
 
 sg.theme('Dark Blue 3')
 layout = [
@@ -37,6 +40,10 @@ async def evloop():
       pvalues=str(values)
     await asyncio.sleep(0.05)
 
+##########################################
+#BLE (Nordic Serial) connection
+#  try connecting to the device its name "SPRESENSE"
+##########################################
 from bleak import BleakClient
 from bleak import discover
 
@@ -69,6 +76,9 @@ async def bl_connect(name):
         await client.write_gatt_char(CWR_UUID,cmd.encode('utf-8'))
         queue.task_done()
 
+##########################################
+#Main loop for driving both GUI and BLE
+##########################################
 async def main():
   global queue
   queue=asyncio.Queue()

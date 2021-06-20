@@ -39,3 +39,6 @@ ArduinoIDEを立ち上げ、 *ファイル&rarr;環境設定* を開きます。
 |ドーターボード|1|UB-ARD01|Sunhayato|
 |電源プラグ|1|EIAJ-3(メス)||
 |電解コンデンサ|1|220&micro;F||
+
+# ESP32 Getting Started
+https://dl.espressif.com/dl/package_esp32_index.json

@@ -7,15 +7,18 @@ struct TimeoutTab{
   int key;
   long timeout;
   void *object;
-  void *func;
+  TimeoutCallbackP func;
 };
 
 TimeoutClass::TimeoutClass(void){
   tbl=new TimeoutTab[TBLEN];
-  for(int i=0;i<TBLEN;i++) tbl[i].func=tbl[i].object=NULL;
+  for(int i=0;i<TBLEN;i++){
+    tbl[i].func=NULL;
+    tbl[i].object=NULL;
+  }
 }
 long TimeoutClass::set(TimeoutCallback f,int ms){
-	set(NULL,(TimeoutCallbackP)f,ms);
+  set(NULL,(TimeoutCallbackP)f,ms);
 }
 long TimeoutClass::set(void *obj,TimeoutCallbackP f,int ms){
   long now=micros();
@@ -56,7 +59,7 @@ void TimeoutClass::spinOnce(void){
   long now=micros();
   long diff=et->timeout-now;
   if(diff<0){
-  	void *cb=et->func;
+  	TimeoutCallbackP cb=et->func;
   	void *obj=et->object;
 	memmove(et,et+1,sizeof(TimeoutTab)*(TBLEN-1));
   	if(obj==NULL) (*(TimeoutCallback)cb)();
