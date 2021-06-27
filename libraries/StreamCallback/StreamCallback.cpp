@@ -2,9 +2,6 @@
 #include "Timeout.h"
 #include "Arduino.h"
 
-#define BUFLEN 1000
-#define LATENCY 5  //ms
-
 static void cb_trigger(void *ref){
 	StreamCallback *tag=(StreamCallback *)ref;
 	tag->blen=tag->bptr;
@@ -20,24 +17,16 @@ static void cb_loop(void *ref){
 		if(tag->ev_trigger!=0) Timeout.clear(tag->ev_trigger);
 		tag->buf[tag->bptr++]=tag->serial->read();
 		tag->buf[tag->bptr]=0;
-		tag->ev_trigger=Timeout.set(tag,cb_trigger,LATENCY);
+		tag->ev_trigger=Timeout.set(tag,cb_trigger,tag->timeout);
 	}
 	tag->ev_loop=Timeout.set(tag,cb_loop,0);
 }
-StreamCallback::StreamCallback(Stream *se,CallbackCharPtr cb){
-	callback=(CallbackCharPtrInt)cb;
-	serial=se;
-	ev_trigger=0;
-	ev_loop=Timeout.set(this,cb_loop,0);
-	buf=new char[BUFLEN];
-	bptr=blen=0;
-}
-StreamCallback::StreamCallback(Stream *se,CallbackCharPtrInt cb){
+StreamCallback::StreamCallback(Stream *se,int sz,void (*cb)(char *,int),int t){
 	callback=cb;
 	serial=se;
 	ev_trigger=0;
 	ev_loop=Timeout.set(this,cb_loop,0);
-	buf=new char[BUFLEN];
+	buf=new char[sz];
+	timeout=t;
 	bptr=blen=0;
 }
-
