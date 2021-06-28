@@ -4,7 +4,7 @@
 class Stream;
 class StreamCallback{
 public:
-  int ev_loop,ev_trigger,timeout;
+  int ev_loop,ev_timeout,timer;
   char *buf;
   int bptr,blen;
   void (*callback)(char *,int);
