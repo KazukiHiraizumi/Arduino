@@ -6,7 +6,8 @@ class Stream;
 class CastumCallback:public StreamCallback{
 public:
   unsigned char csum;
-  CastumCallback(Stream *serial,void (*callback)(char *,int));
+  void (*callback2)(char *,int);
+  CastumCallback(Stream *serial,void (*recv_cb)(char *,int),void (*result_cb)(char *,int));
 };
 
 #endif

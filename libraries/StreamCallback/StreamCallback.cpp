@@ -26,7 +26,7 @@ StreamCallback::StreamCallback(Stream *se,int sz,void (*cb)(char *,int),int t){
 	serial=se;
 	ev_timeout=0;
 	ev_loop=Timeout.set(this,cb_loop,0);
-	buf=new char[sz];
+	buf=new char[bsize=sz];
 	timer=t;
 	bptr=blen=0;
 }

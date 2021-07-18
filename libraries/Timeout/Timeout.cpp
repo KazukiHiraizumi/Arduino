@@ -18,7 +18,7 @@ TimeoutClass::TimeoutClass(void){
   }
 }
 long TimeoutClass::set(TimeoutCallback f,int ms){
-  set(NULL,(TimeoutCallbackP)f,ms);
+  return set(NULL,(TimeoutCallbackP)f,ms);
 }
 long TimeoutClass::set(void *obj,TimeoutCallbackP f,int ms){
   long now=micros();

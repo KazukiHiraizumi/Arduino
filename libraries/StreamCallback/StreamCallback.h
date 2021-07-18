@@ -6,10 +6,10 @@ class StreamCallback{
 public:
   int ev_loop,ev_timeout,timer;
   char *buf;
-  int bptr,blen;
+  int bptr,blen,bsize;
   void (*callback)(char *,int);
   Stream *serial;
-  StreamCallback(Stream *serial,int bufsize,void (*callback)(char *,int),int timeout=1);
+  StreamCallback(Stream *serial,int bufsize,void (*callback)(char *,int),int timeout=10);
 };
 
 #endif
