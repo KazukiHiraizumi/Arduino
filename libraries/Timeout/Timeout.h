@@ -9,8 +9,10 @@ public:
   struct TimeoutTab *tbl;
   TimeoutClass(void);
   long set(TimeoutCallback,int);
+  long set(TimeoutCallback,int,char *);
   long set(void *object,TimeoutCallbackP,int);
-  void clear(long);
+  long set(void *object,TimeoutCallbackP,int,char *);
+  int clear(long);
   int lookup(long);
   void spinOnce(void);
 };

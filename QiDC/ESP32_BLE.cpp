@@ -1,6 +1,7 @@
 #include "ESP32_BLE.h"
-#include "Timeout.h"
-#include "Arduino.h"
+#include "TimeoutMacro.h"
+#include <Arduino.h>
+#include <BLE2902.h>
 
 BleSvCallback::BleSvCallback(char *device_name,char *service_uuid,void (*cb)(BleSvCallback *,bool f)){
   BLEDevice::init(device_name);
@@ -27,32 +28,33 @@ void BleSvCallback::aoff(void){
   Serial.println("Stop Advertising");
 }
 void BleSvCallback::onConnect(BLEServer*){
-  callback(this,true);
+  callback(this,connect=true);
 }
 void BleSvCallback::onDisconnect(BLEServer*){
-  callback(this,false);
+  callback(this,connect=false);
 }
 
-BleCReCallback::BleCReCallback(BLEService *sv,char *ch_uuid,int l,void (*cb)(BleCReCallback*)){
+BleCReCallback::BleCReCallback(BLEService *sv,char *ch_uuid,void (*cb)(BleCReCallback*)){
   blesv = sv;
-  buf=new uint8_t[length=l];
-  memset(buf,'R',length);
   pCharacteristic = blesv->createCharacteristic(ch_uuid,BLECharacteristic::PROPERTY_READ|BLECharacteristic::PROPERTY_NOTIFY);
-//  pCharacteristic = blesv->createCharacteristic(ch_uuid,BLECharacteristic::PROPERTY_READ);
-  pCharacteristic->setValue(buf,length);
   pCharacteristic->setCallbacks(this);
+  pCharacteristic->addDescriptor(new BLE2902());
   callback=cb;
 }
 void BleCReCallback::onRead(BLECharacteristic*){
   callback(this);
 }
+void BleCReCallback::onNotify(BLECharacteristic *){
+  callback(this);
+}
+void BleCReCallback::onStatus(BLECharacteristic*, Status s, uint32_t code){
+  Serial.print("status cb ");
+  Serial.println(s);
+}
 
-BleCWrCallback::BleCWrCallback(BLEService *sv,char *ch_uuid,int l,void (*cb)(BleCWrCallback*)){
+BleCWrCallback::BleCWrCallback(BLEService *sv,char *ch_uuid,void (*cb)(BleCWrCallback*)){
   blesv = sv;
-  buf=new uint8_t[length=l];
-  memset(buf,'W',length);
   pCharacteristic = blesv->createCharacteristic(ch_uuid,BLECharacteristic::PROPERTY_WRITE);
-  pCharacteristic->setValue(buf,length);
   pCharacteristic->setCallbacks(this);
   callback=cb;
 }
