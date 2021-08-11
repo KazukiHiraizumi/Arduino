@@ -47,8 +47,8 @@ void BleCReCallback::onNotify(BLECharacteristic *){
   callback(this);
 }
 void BleCReCallback::onStatus(BLECharacteristic*, Status s, uint32_t code){
-  Serial.print("status cb ");
-  Serial.println(s);
+//  Serial.print("status cb ");
+//  Serial.println(s);
 }
 
 BleCWrCallback::BleCWrCallback(BLEService *sv,char *ch_uuid,void (*cb)(BleCWrCallback*)){

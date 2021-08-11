@@ -51,7 +51,7 @@ LOOP:
   tag->timestamp=micros();
   goto LOOP;
 }
-CastumCallback::CastumCallback(HardwareSerial *se,void (*cb)(char *,int)){
+CastumCallback::CastumCallback(HardwareSerial *se,void (*cb)(uint8_t *,int)){
   serial=se;
   callback=cb;
   csum=0;//receive packet pointer

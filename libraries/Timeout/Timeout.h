@@ -3,7 +3,7 @@
 
 typedef void (*TimeoutCallback)();
 typedef void (*TimeoutCallbackP)(char *);
-typedef void (*TimeoutCallbackPN)(char *,int);
+typedef void (*TimeoutCallbackPN)(uint8_t *,int);
 struct TimeoutTab;
 class TimeoutClass{
 public:
@@ -11,7 +11,7 @@ public:
   TimeoutClass(void);
   long set(TimeoutCallback,int delay);
   long set(char *message,TimeoutCallbackP,int delay);
-  long set(char *message,int length,TimeoutCallbackPN,int delay);
+  long set(uint8_t *message,int length,TimeoutCallbackPN,int delay);
   int clear(long);
   int lookup(long);
   void spinOnce(void);

@@ -6,7 +6,7 @@ SemaphoreHandle_t xMutex = NULL;
 
 struct TimeoutTab{
   long timeout;
-  char msg[20];
+  uint8_t msg[8];
   int msglen;
   TimeoutCallback func;
   TimeoutTab(){
@@ -24,16 +24,16 @@ struct TimeoutTab{
 };
 
 TimeoutClass::TimeoutClass(void){
-  tbl=new TimeoutTab[200];
+  tbl=new TimeoutTab[20];
   xMutex = xSemaphoreCreateMutex();
 }
 long TimeoutClass::set(TimeoutCallback f,int ms){
   return set(NULL,-1,(TimeoutCallbackPN)f,ms);
 }
 long TimeoutClass::set(char *s,TimeoutCallbackP f,int ms){
-  return set(s,0,(TimeoutCallbackPN)f,ms);
+  return set((uint8_t *)s,0,(TimeoutCallbackPN)f,ms);
 }
-long TimeoutClass::set(char *s,int l,TimeoutCallbackPN f,int ms){
+long TimeoutClass::set(uint8_t *s,int l,TimeoutCallbackPN f,int ms){
   const TickType_t xTicksToWait=1000UL;
   BaseType_t xStatus = xSemaphoreTake(xMutex, xTicksToWait);
   long now=micros();
@@ -57,7 +57,7 @@ long TimeoutClass::set(char *s,int l,TimeoutCallbackPN f,int ms){
   tbl[n].timeout=tout;
   tbl[n].msglen=l;
   if(s!=NULL){
-  	if(l==0) strcpy(tbl[n].msg,s);
+  	if(l==0) strcpy((char *)tbl[n].msg,(char *)s);
   	else memcpy(tbl[n].msg,s,l);
   }
   xSemaphoreGive(xMutex);
@@ -99,7 +99,7 @@ void TimeoutClass::spinOnce(void){
   xSemaphoreGive(xMutex);
   if(et.func!=NULL){
     if(et.msglen>0) (*(TimeoutCallbackPN)et.func)(et.msg,et.msglen);
-    else if(et.msglen==0) (*(TimeoutCallbackP)et.func)(et.msg);
+    else if(et.msglen==0) (*(TimeoutCallbackP)et.func)((char *)et.msg);
     else (*(TimeoutCallback)et.func)();
   }
 }
