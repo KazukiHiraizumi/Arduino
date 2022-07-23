@@ -10,7 +10,7 @@ static NRF52_MBED_Timer ITimer0(NRF_TIMER_3);   //PWM
 static NRF52_MBED_Timer ITimer1(NRF_TIMER_4);   //Debouncer and PWM blocker
 
 #define T_PWM 833 //usec
-#define T_PWM_MIN 50 //usec
+#define T_PWM_MIN (T_PWM/10) //usec
 
 #define LENGTH(x) (sizeof(x))/(sizeof(x[0]))
 
@@ -102,7 +102,11 @@ namespace pwm{//methods for pwm
         }
       }
       else{
-        if(tw<T_PWM_MIN) tw=T_PWM_MIN;
+        if(tw<T_PWM_MIN){
+          uint8_t rn=tnow&0xFF; //as random number
+          if(((uint32_t)tw<<8)/T_PWM_MIN<rn) return;
+          else tw=T_PWM_MIN;
+        }
         on();
         ITimer1.setInterval(tw,intr_off);
         Tact+=tw;
@@ -114,6 +118,7 @@ namespace pwm{//methods for pwm
     if(Duty==0) return;
     if(Count==0){
       uint16_t pcnt=duration/T_PWM;
+      pcnt|=1; //division should be odd number
       Interval=duration/pcnt;
       ITimer0.setInterval(Interval,intr_on);
       on();
