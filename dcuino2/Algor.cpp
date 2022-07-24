@@ -40,7 +40,7 @@ static uint16_t sspan;
 //l/h count
 static uint8_t nflag; //0:waiting,1:search bottom,2:search peak
 static uint16_t nvalue;
-static float nhold,nbuf[2];
+static float nhold,nbuf[10];
 
 //table
 static uint8_t tbl_index;
@@ -147,15 +147,17 @@ uint8_t algor_update(int32_t udt,int32_t uot){
     break;
   }
 //Block-N: peak top count
-  float nthres=PRM_ReadData(23)*bhscl*wh*0.001; // *0.001 i.e. /1000rad/s
-  float nbh=(nbuf[0]+nbuf[1]+bh)*0.3333333333;
-  nbuf[1]=nbuf[0];
+  memcpy(nbuf+1,nbuf,sizeof(nbuf)-sizeof(nbuf[0]));
   nbuf[0]=bh;
+  uint16_t nlim=20000/udt;  //20ms/dt
+  float nbh=nbuf[0];
+  if(nlim>=2) nbh=accumulate(nbuf+1,nbuf+nlim,nbh)/nlim;
+  float nthres=PRM_ReadData(22)*bhscl*wh*0.001; // *0.001 i.e. /1000rad/s
   switch(nflag){
   case 0:
     nvalue=0;
-    if(iflag<PRM_ReadData(22)) break;
     nhold=nbh;
+    if(iflag<PRM_ReadData(20)) break;
     nflag=1;
     break;
   case 1:
@@ -165,6 +167,8 @@ uint8_t algor_update(int32_t udt,int32_t uot){
       nflag=2;
       nhold=nbh;
     }
+    if(iflag<PRM_ReadData(21)) break;
+    nflag=3;
     break;
   case 2:
     if(nhold<nbh) nhold=nbh;
@@ -173,6 +177,8 @@ uint8_t algor_update(int32_t udt,int32_t uot){
       nflag=1;
       nhold=nbh;
     }
+    if(iflag<PRM_ReadData(21)) break;
+    nflag=3;
     break;
   }
 //Block-S: update control input
@@ -183,25 +189,25 @@ uint8_t algor_update(int32_t udt,int32_t uot){
   case 0:
     if(iflag==0){
       ssum=0;
-      sspan=PRM_ReadData(24 +(PRM_ReadData(20)<<1))-PRM_ReadData(24 +2);
+      sspan=PRM_ReadData(24 +(PRM_ReadData(18)<<1))-PRM_ReadData(24 +2);
       svalue=ivalue;
       break;
     }
     sflag=1;
   case 1:
-    if(iflag<PRM_ReadData(20)){
+    if(iflag<PRM_ReadData(18)){
       if(hsig) ssum+=udt>>6;
       svalue=ivalue;
       ivalue__=PRM_ReadData(17);
       break;
     }
     eval_index=ssum/sspan;
-    svalue=shold=((uint32_t)PRM_ReadData(24 +(PRM_ReadData(20)<<1)+1)*eval_index>>8)*duovd>>8;
+    svalue=shold=((uint32_t)PRM_ReadData(24 +(PRM_ReadData(18)<<1)+1)*eval_index>>8)*duovd>>8;
     sflag=tmsec;
     dcore::mode5();
   default:
     mod_h=(uint16_t)shold*readTbl8(48,nvalue)>>8;
-    end_i=PRM_ReadData(21);
+    end_i=PRM_ReadData(19);
     if(end_i>0){
       end_i<<=1;
       end_tm=(uint16_t)PRM_ReadData(24+end_i)<<4; //time span

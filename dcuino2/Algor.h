@@ -7,4 +7,9 @@ extern void algor_prepare();
 extern uint8_t algor_update(int32_t time,int32_t duty);
 extern uint8_t algor_param[8*7];
 
+inline float accumulate(float *arr1,float *arr2, float& sum){
+  for(;arr1<arr2;arr1++) sum+=*arr1;
+  return sum;
+}
+
 #endif
