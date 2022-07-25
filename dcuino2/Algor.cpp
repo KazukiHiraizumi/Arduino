@@ -6,9 +6,9 @@
 
 //params
 uint8_t algor_param[]={
-  90,255,255,0,   150,100,30,30,
+  90,20,100,0,   150,50,70,30,
   120,100,5,255,  255,255,255,255,
-  10,255,255,255, 2,0,170,0,
+  30,10,2,0,      255,150,35,255,
   0,241,9,216,    26,178,25,83,
   31,50,13,150,   192,229,255,231,
   0,50,13,150,    17,255,255,255,
@@ -33,14 +33,10 @@ static float hvalue;
 //profile
 static uint8_t ivalue,iflag;
 //steady control
-static uint32_t ssum;
+static uint32_t ssum[10];
 static uint16_t sflag;
-static uint8_t svalue,shold;
+static uint8_t svalue,shold,seval1,seval2;
 static uint16_t sspan;
-//l/h count
-static uint8_t nflag; //0:waiting,1:search bottom,2:search peak
-static uint16_t nvalue;
-static float nhold,nbuf[10];
 
 //table
 static uint8_t tbl_index;
@@ -52,6 +48,7 @@ static uint8_t tbl_index;
 #define ODD(s) ((s)&1)
 #define MAX(a,b) ((a)>(b)? a:b)
 #define MIN(a,b) ((a)<(b)? a:b)
+#define ARRSZ(a) (sizeof(a)/sizeof(a[0]))
 
 #define PRM_ReadData(n) algor_param[n]
 
@@ -82,11 +79,11 @@ static int compare(const void* a, const void* b){ return abs(*(int32_t *)a)-abs(
 static int algor_smode(int D,int h){
   float bhref=h*bhscl;
 //  if(h&1) bhref+=bhmin;
-  hvalue= dbh/D+(bh-bhref);
-  return hvalue <0;
+  hvalue= dbh/D+bh;
+  return hvalue<bhref;
 }
 void algor_prepare(){
-  hflag=iflag=sflag=nflag=0;
+  hflag=iflag=sflag=0;
   utime=wh=bh=dbh=wrmax=0;
   pi2=6.28318530718;
   svalue=shold=PRM_ReadData(25); //the 1st point of profile
@@ -146,67 +143,44 @@ uint8_t algor_update(int32_t udt,int32_t uot){
     if(bhmin>bh) bhmin=bh;
     break;
   }
-//Block-N: peak top count
-  memcpy(nbuf+1,nbuf,sizeof(nbuf)-sizeof(nbuf[0]));
-  nbuf[0]=bh;
-  uint16_t nlim=20000/udt;  //20ms/dt
-  float nbh=nbuf[0];
-  if(nlim>=2) nbh=accumulate(nbuf+1,nbuf+nlim,nbh)/nlim;
-  float nthres=PRM_ReadData(22)*bhscl*wh*0.001; // *0.001 i.e. /1000rad/s
-  switch(nflag){
-  case 0:
-    nvalue=0;
-    nhold=nbh;
-    if(iflag<PRM_ReadData(20)) break;
-    nflag=1;
-    break;
-  case 1:
-    if(nhold>nbh) nhold=nbh;
-    else if(nbh-nhold>nthres){
-      nvalue+=10;
-      nflag=2;
-      nhold=nbh;
-    }
-    if(iflag<PRM_ReadData(21)) break;
-    nflag=3;
-    break;
-  case 2:
-    if(nhold<nbh) nhold=nbh;
-    else if(nhold-nbh>nthres){
-      nvalue+=10;
-      nflag=1;
-      nhold=nbh;
-    }
-    if(iflag<PRM_ReadData(21)) break;
-    nflag=3;
-    break;
-  }
 //Block-S: update control input
   ivalue=(uint16_t)ivalue*duovd>>8;
   switch(sflag){
-    uint16_t eval_index,end_tm;
+    uint16_t end_tm;
     uint8_t mod_h,end_i;
   case 0:
-    if(iflag==0){
-      ssum=0;
-      sspan=PRM_ReadData(24 +(PRM_ReadData(18)<<1))-PRM_ReadData(24 +2);
-      svalue=ivalue;
-      break;
-    }
+    memset(ssum,0,sizeof(ssum));
+    sspan=PRM_ReadData(24 +(PRM_ReadData(18)<<1))-PRM_ReadData(24 +2);
+    svalue=ivalue;
+    if(iflag==0) break;
     sflag=1;
+    break;
   case 1:
     if(iflag<PRM_ReadData(18)){
-      if(hsig) ssum+=udt>>6;
+      for(int i=0;i<ARRSZ(ssum);i++){
+        int thres=PRM_ReadData(6)+((uint32_t)PRM_ReadData(22)*10-PRM_ReadData(6))*i/ARRSZ(ssum);
+        if(hvalue>thres*bhscl) ssum[i]+=udt;
+      }
+      seval1=US2MS(ssum[0]);
+      seval2=US2MS(ssum[5]);
       svalue=ivalue;
       ivalue__=PRM_ReadData(17);
       break;
     }
-    eval_index=ssum/sspan;
-    svalue=shold=((uint32_t)PRM_ReadData(24 +(PRM_ReadData(18)<<1)+1)*eval_index>>8)*duovd>>8;
+    seval1=255-(ssum[0]*PRM_ReadData(20)/sspan>>14);
+    for(seval2=1;seval2<ARRSZ(ssum);seval2++){
+      if(ssum[seval2]<ssum[0]/2) break;
+    }
+    seval2=255-(uint32_t)PRM_ReadData(21)*seval2/ARRSZ(ssum);
+/*    Serial.print("Eval ");
+    Serial.print(seval1);
+    Serial.print(" ");
+    Serial.println(seval2);*/
+    svalue=shold=((uint32_t)PRM_ReadData(24 +(PRM_ReadData(18)<<1)+1)*seval1>>8)*duovd>>8;
     sflag=tmsec;
     dcore::mode5();
   default:
-    mod_h=(uint16_t)shold*readTbl8(48,nvalue)>>8;
+    mod_h=(uint16_t)shold*seval2>>8;
     end_i=PRM_ReadData(19);
     if(end_i>0){
       end_i<<=1;
@@ -225,22 +199,26 @@ uint8_t algor_update(int32_t udt,int32_t uot){
   if(hsig) duty=svalue;
 
 //logger
-  logger::stage.eval=ssum/sspan;
   logger::stage.omega=wrps;
+  logger::stage.beta=round(bh)/bhscl;
   logger::stage.latency=tmsec;
   switch(PRM_ReadData(3)){
-  case 1:
+  default:
+    switch((US2MS(logger::stage.stamp)/100)%2){
+    case 0:;
+      logger::stage.eval=seval1;
+      break;
+    case 1:
+      logger::stage.eval=seval2;
+      break;      
+    }
+    break;
+  case 10:
     logger::stage.beta=round(bhmin)/bhscl;
     break;
-  case 2:
+  case 11:
     logger::stage.beta=round(hvalue)/bhscl;
     break;
-  case 3:
-    logger::stage.eval=nvalue;
-    logger::stage.beta=round(nbh)/bhscl;
-    break;
-  default:
-    logger::stage.beta=round(bh)/bhscl;
   }
   return duty;
 }

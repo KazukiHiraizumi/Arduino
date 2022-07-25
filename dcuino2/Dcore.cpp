@@ -86,7 +86,7 @@ namespace pwm{//methods for pwm
     if(!Block){
       int32_t tnow=micros();
       int16_t tw=(long)Interval*Duty>>8;
-      int32_t tnex=sens::Tm+sens::Interval-(Interval>>1);
+      int32_t tnex=sens::Tm+sens::Interval-T_PWM/2;
       if(tnow+tw-tnex>0) tw=tnex-tnow;
       if(tnow+Interval-tnex>0){
         if(tw>T_PWM_MIN){
