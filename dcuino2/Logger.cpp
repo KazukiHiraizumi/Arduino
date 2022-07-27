@@ -19,8 +19,10 @@ namespace logger{
     tzero=micros();
   }
   void latch(){
-	  buf[size++]=stage;
-	  clear();
+	  if(stage.stamp){
+	    buf[size++]=stage;
+  	  clear();
+	  }
     stage.stamp=micros()-tzero;
   }
   void dump(){

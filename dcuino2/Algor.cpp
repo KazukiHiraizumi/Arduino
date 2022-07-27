@@ -21,7 +21,6 @@ static uint32_t utime; //elapsed time in usec
 static float wh,bh,dbh;
 static float pi2;
 static float bhscl;
-static float bhmin;
 //watches
 static uint32_t wrps;//ang.velocity by rad/s
 static uint16_t wrmax;//max ang.velocity by rad/s
@@ -35,7 +34,8 @@ static uint8_t ivalue,iflag;
 //steady control
 static uint32_t ssum[10];
 static uint16_t sflag;
-static uint8_t svalue,shold,seval1,seval2;
+static uint8_t svalue,shold;
+static uint8_t seval1,seval2;
 static uint16_t sspan;
 
 //table
@@ -78,7 +78,6 @@ static uint16_t readTbl8(int p,int b){ return readTbl12(p,b<<4);}
 static int compare(const void* a, const void* b){ return abs(*(int32_t *)a)-abs(*(int32_t *)b);}
 static int algor_smode(int D,int h){
   float bhref=h*bhscl;
-//  if(h&1) bhref+=bhmin;
   hvalue= dbh/D+bh;
   return hvalue<bhref;
 }
@@ -96,6 +95,7 @@ uint8_t algor_update(int32_t udt,int32_t uot){
 //Block-I: duty profile
   ivalue=readTbl12(24,tmsec);
   iflag=tbl_index;
+  ivalue=(uint16_t)ivalue*duovd>>8;
   uint8_t ivalue__=0;
 //Block-W: measurement and observer
   float dt=US2S(udt);
@@ -125,7 +125,6 @@ uint8_t algor_update(int32_t udt,int32_t uot){
 //Block-H: sliding mode, tension filter
   switch(hflag){
   case 0:
-    bhmin=0;
     hsig=0;
     if(PRM_ReadData(16)==0) break;
     if(tmsec>PRM_ReadData(16)) hflag=1;
@@ -134,65 +133,58 @@ uint8_t algor_update(int32_t udt,int32_t uot){
     hsig=algor_smode(PRM_ReadData(5),PRM_ReadData(4));
     if(hsig){
       hflag=2;
+      dcore::shift();  //mode 2=>4
     }
     break;
   case 2:
     hsig=algor_smode(PRM_ReadData(7),PRM_ReadData(6));
-    ivalue__=PRM_ReadData(17);
-  //filter
-    if(bhmin>bh) bhmin=bh;
     break;
   }
 //Block-S: update control input
-  ivalue=(uint16_t)ivalue*duovd>>8;
   switch(sflag){
-    uint16_t end_tm;
-    uint8_t mod_h,end_i;
-  case 0:
-    memset(ssum,0,sizeof(ssum));
-    sspan=PRM_ReadData(24 +(PRM_ReadData(18)<<1))-PRM_ReadData(24 +2);
-    svalue=ivalue;
-    if(iflag==0) break;
-    sflag=1;
-    break;
-  case 1:
-    if(iflag<PRM_ReadData(18)){
-      for(int i=0;i<ARRSZ(ssum);i++){
-        int thres=PRM_ReadData(6)+((uint32_t)PRM_ReadData(22)*10-PRM_ReadData(6))*i/ARRSZ(ssum);
-        if(hvalue>thres*bhscl) ssum[i]+=udt;
-      }
-      seval1=US2MS(ssum[0]);
-      seval2=US2MS(ssum[5]);
+    case 0:{
+      memset(ssum,0,sizeof(ssum));
+      sspan=PRM_ReadData(24 +(PRM_ReadData(20)<<1))-PRM_ReadData(24 +2);
       svalue=ivalue;
-      ivalue__=PRM_ReadData(17);
+      if(iflag==0) break;
+      sflag=1;
       break;
     }
-    seval1=255-(ssum[0]*PRM_ReadData(20)/sspan>>14);
-    for(seval2=1;seval2<ARRSZ(ssum);seval2++){
-      if(ssum[seval2]<ssum[0]/2) break;
+    case 1:{
+      if(iflag<PRM_ReadData(20)){
+        float thres=PRM_ReadData(6)*bhscl;
+        float k=PRM_ReadData(22)*bhscl;
+        for(int i=0;i<ARRSZ(ssum);i++){
+          if(hvalue>thres+k*i) ssum[i]+=udt;
+        }
+        svalue=ivalue;
+        break;
+      }
+      uint32_t s1span=sspan*ARRSZ(ssum);
+      uint32_t s1=accumulate<uint32_t>(ssum,ssum+ARRSZ(ssum));
+      uint16_t sv1=s1/s1span>>5;
+      seval1=sv1>255? 255:sv1;
+      sv1=256-((uint16_t)seval1*PRM_ReadData(23)>>8);
+      svalue=shold=((uint32_t)PRM_ReadData(24 +(PRM_ReadData(20)<<1)+1)*sv1>>8)*duovd>>8;
+      sflag=tmsec;
+      seval2=sv1>255? 255:sv1;
+      ivalue__=PRM_ReadData(18);
+      dcore::shift();  //mode 4=>5
     }
-    seval2=255-(uint32_t)PRM_ReadData(21)*seval2/ARRSZ(ssum);
-/*    Serial.print("Eval ");
-    Serial.print(seval1);
-    Serial.print(" ");
-    Serial.println(seval2);*/
-    svalue=shold=((uint32_t)PRM_ReadData(24 +(PRM_ReadData(18)<<1)+1)*seval1>>8)*duovd>>8;
-    sflag=tmsec;
-    dcore::mode5();
-  default:
-    mod_h=(uint16_t)shold*seval2>>8;
-    end_i=PRM_ReadData(19);
-    if(end_i>0){
-      end_i<<=1;
-      end_tm=(uint16_t)PRM_ReadData(24+end_i)<<4; //time span
-      svalue=interp(mod_h,(uint8_t)PRM_ReadData(24+end_i +1),end_tm-sflag,tmsec-sflag);
+    default:{
+      uint8_t end_i=PRM_ReadData(21);
+      if(end_i>0){
+        end_i<<=1;
+        uint16_t end_tm=(uint16_t)PRM_ReadData(24+end_i)<<4; //time span
+        svalue=interp(shold,(uint8_t)PRM_ReadData(24+end_i +1),end_tm-sflag,tmsec-sflag);
+      }
+      else{
+        svalue=shold;
+      }
+      if(svalue<ivalue) svalue=ivalue;
+      ivalue__=255;
+      break;
     }
-    else{
-      svalue=mod_h;
-    }
-    if(svalue<ivalue) svalue=ivalue;
-    ivalue__=255;
-    break;
   }
   uint8_t duty=ivalue__;
   if(duty>svalue) duty=svalue;
@@ -202,21 +194,23 @@ uint8_t algor_update(int32_t udt,int32_t uot){
   logger::stage.omega=wrps;
   logger::stage.beta=round(bh)/bhscl;
   logger::stage.latency=tmsec;
+  int t100ms=US2MS(logger::stage.stamp)/100;
   switch(PRM_ReadData(3)){
   default:
-    switch((US2MS(logger::stage.stamp)/100)%2){
-    case 0:;
+    switch(t100ms){
+    case 5:
       logger::stage.eval=seval1;
       break;
-    case 1:
+    case 6:
       logger::stage.eval=seval2;
-      break;      
+      break;
+    default:
+      if(t100ms<7 || t100ms>=ARRSZ(ssum)+7) break;
+      logger::stage.eval=US2MS(ssum[t100ms-7]);
+      break;
     }
     break;
-  case 10:
-    logger::stage.beta=round(bhmin)/bhscl;
-    break;
-  case 11:
+  case 101:
     logger::stage.beta=round(hvalue)/bhscl;
     break;
   }
