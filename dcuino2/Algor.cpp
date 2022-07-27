@@ -18,13 +18,13 @@ uint8_t algor_param[]={
 //elapsed time
 static uint32_t utime; //elapsed time in usec
 //observer vars
+static uint8_t wflag;
 static float wh,bh,dbh;
 static float pi2;
 static float bhscl;
 //watches
-static uint32_t wrps;//ang.velocity by rad/s
-static uint16_t wrmax;//max ang.velocity by rad/s
-static uint8_t duovd; //duty override
+static uint16_t wrmax;//max ang.velocity
+static uint8_t wovrd; //duty override by max velocity
 
 //sliding mode
 static uint8_t hsig,hdeg,hflag;
@@ -34,7 +34,7 @@ static uint8_t ivalue,iflag;
 //steady control
 static uint32_t ssum[30];
 static uint16_t sflag;
-static uint8_t svalue,shold;
+static uint8_t svalue,sduty;
 static uint8_t seval1,seval2;
 static uint16_t sspan;
 
@@ -76,17 +76,16 @@ static uint16_t readTbl12(int p,int w){
 }
 static uint16_t readTbl8(int p,int b){ return readTbl12(p,b<<4);}
 static int compare(const void* a, const void* b){ return abs(*(int32_t *)a)-abs(*(int32_t *)b);}
+void algor_prepare(){
+  wflag=hflag=iflag=sflag=0;
+  utime=0;
+  pi2=6.28318530718;
+  bhscl=PRM_ReadData(1);
+}
 static int algor_smode(int D,int h){
   float bhref=h*bhscl;
   hvalue= dbh/D+bh;
   return hvalue<bhref;
-}
-void algor_prepare(){
-  hflag=iflag=sflag=0;
-  utime=wh=bh=dbh=wrmax=0;
-  pi2=6.28318530718;
-  svalue=shold=PRM_ReadData(25); //the 1st point of profile
-  bhscl=PRM_ReadData(1);
 }
 uint8_t algor_update(int32_t udt,int32_t uot){
   if(udt==0) return 0;
@@ -98,28 +97,31 @@ uint8_t algor_update(int32_t udt,int32_t uot){
   uint8_t ivalue__=0;
 //Block-W: measurement and observer
   float dt=US2S(udt);
-  if(wh==0){
-    wh=pi2/dt;
-    bh=dbh=0;
+  switch(wflag){
+    case 0:{
+      wh=pi2/dt;
+      bh=dbh=0;
+      wrmax=0;
+      wflag=1;
+    }
+    case 1:{
+      float pole=PRM_ReadData(2);
+      float pold=0.4/dt;
+      pole=pold<pole? pold:pole;
+      float h1=2*pole;
+      float h2=pole*pole;
+      float b2pi=PRM_ReadData(0)*0.25; // 2pi/tau
+      float u0=(float)uot/udt;
+      float werr=pi2-wh*dt;
+      wh=wh+werr*h1+bh*dt-b2pi*u0;
+      bh=bh+(dbh=werr*h2);
+      dbh=dbh/dt;
+    }
   }
-  else{
-    float pole=PRM_ReadData(2);
-    float pold=0.4/dt;
-    pole=pold<pole? pold:pole;
-    float h1=2*pole;
-    float h2=pole*pole;
-    float b2pi=PRM_ReadData(0)*0.25; // 2pi/tau
-    float u0=(float)uot/udt;
-    float werr=pi2-wh*dt;
-    wh=wh+werr*h1+bh*dt-b2pi*u0;
-    bh=bh+(dbh=werr*h2);
-    dbh=dbh/dt;
-  }
-  //output filter
-  wrps=round(wh);
+  uint16_t wrps=round(wh);
   if(wrmax<wrps){
     wrmax=wrps;
-    duovd=readTbl8(40,DIV100(wrmax));
+    wovrd=readTbl8(40,DIV100(wrmax));
   }
 //Block-H: sliding mode, tension filter
   switch(hflag){
@@ -141,23 +143,23 @@ uint8_t algor_update(int32_t udt,int32_t uot){
   }
 //Block-S: update control input
   switch(sflag){
-    case 0:{
+    case 0:
       memset(ssum,0,sizeof(ssum));
       sspan=PRM_ReadData(24 +(PRM_ReadData(20)<<1))-PRM_ReadData(24 +2);
-      svalue=(uint16_t)ivalue*duovd>>8;
+      svalue=(uint16_t)ivalue*wovrd>>8;
       if(iflag==0) break;
       sflag=1;
       break;
-    }
     case 1:{
-      uint8_t ssn=PRM_ReadData(22);
-      uint8_t idx=PRM_ReadData(20);
+      uint8_t ssn=PRM_ReadData(22); //switching surface count
+      uint8_t idx=PRM_ReadData(20); //reference point index
       if(iflag<idx){
         float thres=PRM_ReadData(4)*bhscl;
         for(int i=1;i<=ssn;i++){
           if(hvalue>thres*i) ssum[i]+=udt;
         }
-        svalue=(uint16_t)ivalue*duovd>>8;
+        svalue=(uint16_t)ivalue*wovrd>>8;
+        ivalue__=PRM_ReadData(18);
         break;
       }
       uint32_t s1span=sspan*ssn;
@@ -165,20 +167,20 @@ uint8_t algor_update(int32_t udt,int32_t uot){
       uint16_t sv1=s1/s1span>>5;
       seval1=sv1>255? 255:sv1;
       seval2=readTbl8(8,seval1);
-      svalue=shold=((uint32_t)PRM_ReadData(24 +(idx<<1)+1)*seval2>>8)*duovd>>8;
-      sflag=tmsec;
-      ivalue__=PRM_ReadData(18);
-      dcore::shift();  //mode 4=>5
+      uint8_t rduty=PRM_ReadData(24 +(idx<<1)+1); //reference duty
+      sduty=((uint32_t)rduty*seval2>>8)*wovrd>>8;//start duty
+      sflag=tmsec;  //switch time stamp
+      dcore::shift();  //mode switch 4=>5
     }
     default:{
-      uint8_t end_i=PRM_ReadData(21);
-      if(end_i>0){
-        end_i<<=1;
-        uint16_t end_tm=(uint16_t)PRM_ReadData(24+end_i)<<4; //time span
-        svalue=interp(shold,(uint8_t)PRM_ReadData(24+end_i +1),end_tm-sflag,tmsec-sflag);
+      uint8_t ads=PRM_ReadData(21)<<1; //end address
+      uint8_t eduty=PRM_ReadData(24+ads+1); //end duty
+      if(ads>0 && sduty>eduty){
+        uint16_t etm=(uint16_t)PRM_ReadData(24+ads)<<4; //end time by 16ms tick
+        svalue=interp(sduty,eduty,etm-sflag,tmsec-sflag);
       }
       else{
-        svalue=shold;
+        svalue=sduty;
       }
       if(svalue<ivalue) svalue=ivalue;
       ivalue__=255;
