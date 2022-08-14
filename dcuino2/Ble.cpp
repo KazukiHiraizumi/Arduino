@@ -2,6 +2,7 @@
 #include <mbed.h>
 #include <rtos.h>
 #include <SetTimeout.h>
+#include "Dcore.h"
 #include "Logger.h"
 #include "Param.h"
 #include "Ble.h"
@@ -24,10 +25,10 @@ namespace ble{
   static const char* notifyCharUuid;
   static BLECharacteristic* notifyCharacteristicPtr;
   static bool flag_connect;
-  static int code_request;
-  static int sweep_param=-1;
-  static int sweep_logger=-1;
+  static int16_t sweep_param=-1;
+  static int16_t sweep_logger=-1;
   static long sweep_queue=0;
+  static inline bool sweep_busy(){ return (int16_t)(sweep_logger&sweep_param)>=0;}
   void sweep_callback() {
     uint8_t buf[10];
     if(sweep_param>=0){
@@ -101,7 +102,7 @@ namespace ble{
       if(buf[1]&4) param::dump();
       else if(buf[1]&2){
         param::load();
-        rtos::ThisThread::sleep_for(10);
+        delay(10);//rtos::ThisThread::sleep_for(10);
       }
       if(buf[1]&1){
         sweep_param=0;
@@ -124,7 +125,7 @@ namespace ble{
     setTimeout.set([](){  //to turn off
       digitalWrite(LED_PWR,LOW);//digitalWrite(LEDR,HIGH);
     },10);
-    setTimeout.set(led_run,flag_connect? 2000:1000);  //to turn on next
+    setTimeout.set(led_run,flag_connect? 3000:1000);  //to turn on next
   }
   void chk_connect(){
     BLEDevice central = BLE.central();
@@ -132,14 +133,16 @@ namespace ble{
       Serial.print("Connected! MAC address: ");
       Serial.println(central.address());
       flag_connect=true;
-      while(central.connected()){
-        rtos::ThisThread::sleep_for(100);
+      while(1){
+        if(sweep_busy()) delay(100);//rtos::ThisThread::sleep_for(100);
+        else dcore::sleep(100);
+        if(!central.connected()) break;
       }
       flag_connect=false;
     }
   }
   void task_alive(){
-    rtos::ThisThread::sleep_for(3000);
+    delay(3000);//rtos::ThisThread::sleep_for(3000);
     if (!BLE.begin()) {
       Serial.println("Starting Bluetooth® Low Energy module failed!");
       return;
@@ -160,7 +163,7 @@ namespace ble{
     Serial.println("BLE start advertising");
     while(1){
       chk_connect();
-      rtos::ThisThread::sleep_for(1000);
+      dcore::sleep(1000);//delay(1000);//rtos::ThisThread::sleep_for(1000);
     }
   }
   void run(char *name,char *svc,char *chr_req,char *chr_not){

@@ -1,7 +1,7 @@
 //
 //PIN Assign:https://github.com/arduino/ArduinoCore-nRF528x-mbedos/blob/master/variants/ARDUINO_NANO33BLE/pins_arduino.h
 //
-#include "Arduino.h"
+#include <Arduino.h>
 #include <mbed.h>
 #include <rtos.h>
 #include <SetTimeout.h>
@@ -15,6 +15,7 @@
 
 void setup() {
   Serial.begin(115200);
+  digitalWrite(LED_PWR,LOW);//Power LED Turn off
 
   pinMode(DI_SENS,INPUT);  //rotation sensor
   pinMode(DO_FET,OUTPUT);  //FET
@@ -47,5 +48,5 @@ void setup() {
 
 void loop() {
   setTimeout.spinOnce();
-  rtos::ThisThread::sleep_for(5);
+  dcore::sleep(10);
 }

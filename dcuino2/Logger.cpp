@@ -43,13 +43,11 @@ namespace logger{
       Serial.print(" ");
       Serial.print(logs->beta);
       Serial.print(" ");
-      Serial.print(logs->duty);
-      Serial.print(" ");
-      Serial.print(logs->cmd);
-      Serial.print(" ");
       Serial.print(logs->eval);
       Serial.print(" ");
-      Serial.println(logs->icoef);
+      Serial.print(logs->duty);
+      Serial.print(" ");
+      Serial.println(logs->cmd);
     }
   }
 }

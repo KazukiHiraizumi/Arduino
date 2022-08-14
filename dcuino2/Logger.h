@@ -15,7 +15,6 @@ namespace logger{
     uint16_t exetime;
     uint16_t omega;
     int16_t beta;
-    int16_t icoef;
   };
   extern ALOG stage;
   extern ALOG *data;

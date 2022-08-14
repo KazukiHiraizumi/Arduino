@@ -20,8 +20,8 @@ inline uint32_t accumulate(uint32_t *arr1,uint32_t *arr2){
 }
 */
 
-template<typename T> inline T accumulate(T *arr1,T *arr2){
-  T sum=0;
+template<typename T> inline long accumulate(T *arr1,T *arr2){
+  long sum=0;
   for(;arr1<arr2;arr1++) sum+=*arr1;
   return sum;
 }

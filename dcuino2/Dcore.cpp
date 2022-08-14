@@ -16,7 +16,7 @@ static NRF52_MBED_Timer ITimer1(NRF_TIMER_4);   //Debouncer and PWM blocker
 #define LENGTH(x) (sizeof(x))/(sizeof(x[0]))
 
 namespace dcore{//DC core
-  unsigned char Mode;
+  uint8_t Mode;
   static StartCB_t start_callback;
   static ContCB_t cont_callback;
   static EndCB_t end_callback;
@@ -54,6 +54,10 @@ namespace sens{
   static void start();
   static void stop();
   static void task();
+}
+
+namespace debouncer{
+  static uint16_t Tcmd,Tact; //Turn-on time command
 }
 
 namespace pwm{//methods for pwm
@@ -139,17 +143,35 @@ namespace pwm{//methods for pwm
       Tact=0;
       Block=false;
     }
-    logger::stage.icoef=Interval;
   }
 }
 
 namespace debouncer{
-  static void intr(){
+  void init(){ Tcmd=Tact=0;}
+  void intr_ready(){
     sens::start();
     ITimer1.setFrequency(1,dcore::init);
   }
-  void start(uint32_t usec){
-    ITimer1.setInterval(usec,intr);
+  void intr_off(){
+    pwm::off();
+    ITimer1.setInterval(50,intr_ready);
+  }
+  void restart(uint16_t dt){
+    uint32_t tcm=Tcmd;
+    if(tcm>dt-200) tcm=dt-200;
+    if(Tcmd>=100){
+      pwm::on();
+      Tact+=tcm;
+      ITimer1.setInterval(tcm,intr_off);
+    }
+    else{
+      ITimer1.setInterval(500,intr_ready);
+    }
+  }
+  void start(uint16_t dt){
+    pwm::Ton=Tact;
+    Tact=0;
+    restart(dt);
   }
 }
 
@@ -175,7 +197,7 @@ namespace sens{
     case 0:
       logger::start();
       Tm=tnow;
-      debouncer::start(500);
+      debouncer::start(dt);
       if(dt>20000 || dt>Interval){
         Nacc=0;
         Interval=dt;
@@ -186,8 +208,8 @@ namespace sens{
       break;
     case 2:
       logger::latch();
-      debouncer::start(500);
-      Interval=dt;
+      debouncer::start(dt);
+      Interval+=dt;
       Tm=tnow;
       sema.release();
       break;
@@ -200,8 +222,10 @@ namespace sens{
       sema.release();
       break;
     case 1:
+      Interval=dt;
+      Tm=tnow;
     case 3:
-      debouncer::start(500);
+      debouncer::restart(dt);
       dcore::Mode++;
       break;
     }
@@ -221,8 +245,7 @@ namespace sens{
       break;
     case 2:
       log_pre();
-      (*dcore::cont_callback)(Interval,0);
-      pwm::Duty=0;
+      debouncer::Tcmd=(uint16_t)(*dcore::cont_callback)(Interval,pwm::Ton)*10;
       log_post();
       if(dcore::Mode==2) dcore::Mode=1;
       else{
@@ -260,6 +283,7 @@ namespace dcore{
   void init(){
     pwm::init();
     sens::init();
+    debouncer::init();
     sens::start();
     Mode=0;
   }
@@ -286,6 +310,13 @@ namespace dcore{
     init();
     attachInterrupt(sens::Nint, sens::intr, RISING);
     pinMode(sens::DI,INPUT); //disable pullup after attachInterrupt
+  }
+  void sleep(uint16_t ms){
+    long t=millis();
+    do{
+      ::sleep();
+      // __WFI();
+    }while((long)millis()-t<ms);
   }
 }
 
